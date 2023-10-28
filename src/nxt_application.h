@@ -19,6 +19,7 @@ typedef enum {
     NXT_APP_PYTHON,
     NXT_APP_PHP,
     NXT_APP_PERL,
+    NXT_APP_C,
     NXT_APP_RUBY,
     NXT_APP_JAVA,
     NXT_APP_WASM,
