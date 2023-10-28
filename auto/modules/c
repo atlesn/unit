@@ -1,0 +1,130 @@
+
+# Copyright (C) Atle Solbakken
+# Copyright (C) Alexander Borisov
+# Copyright (C) NGINX, Inc.
+
+
+shift
+
+for nxt_option; do
+
+    case "$nxt_option" in
+        -*=*) value=`echo "$nxt_option" | sed -e 's/[-_a-zA-Z0-9]*=//'`     ;;
+           *) value="" ;;
+    esac
+
+    case "$nxt_option" in
+        --module=*)    NXT_C_MODULE="$value"                         ;;
+
+        --help)
+            cat << END
+
+    --module=NAME         set unit c module name
+
+END
+            exit 0
+        ;;
+
+        *)
+            echo
+            echo $0: error: invalid C option \"$nxt_option\"
+            echo
+            exit 1
+        ;;
+    esac
+
+done
+
+
+if [ ! -f $NXT_AUTOCONF_DATA ]; then
+   echo
+   echo Please run common $0 before configuring module \"$nxt_module\".
+   echo
+   exit 1
+fi
+
+. $NXT_AUTOCONF_DATA
+
+$echo "configuring C module"
+$echo "configuring C module ..." >> $NXT_AUTOCONF_ERR
+
+NXT_C=c
+NXT_C_MODULE=${NXT_C_MODULE=${NXT_C##*/}}
+
+NXT_C_CFLAGS=
+NXT_C_INCLUDE=
+NXT_C_LDOPTS=
+
+if grep ^$NXT_C_MODULE: $NXT_MAKEFILE 2>&1 > /dev/null; then
+    $echo
+    $echo $0: error: duplicate \"$NXT_C_MODULE\" module configured.
+    $echo
+    exit 1;
+fi
+
+$echo " + C module: ${NXT_C_MODULE}.unit.so"
+
+. auto/cc/deps
+
+$echo >> $NXT_MAKEFILE
+
+NXT_C_MODULE_SRCS=" \
+    src/c/nxt_c_psgi.c
+"
+
+# The C module object files.
+
+nxt_objs=$NXT_BUILD_DIR/src/nxt_unit.o
+
+for nxt_src in $NXT_C_MODULE_SRCS; do
+
+    nxt_obj=${nxt_src%.c}-$NXT_C_MODULE.o
+    nxt_dep=${nxt_src%.c}-$NXT_C_MODULE.dep
+    nxt_dep_flags=`nxt_gen_dep_flags`
+    nxt_dep_post=`nxt_gen_dep_post`
+    nxt_objs="$nxt_objs $NXT_BUILD_DIR/$nxt_obj"
+
+    cat << END >> $NXT_MAKEFILE
+
+$NXT_BUILD_DIR/$nxt_obj:	$nxt_src $NXT_VERSION_H
+	mkdir -p $NXT_BUILD_DIR/src/c
+	\$(CC) -c \$(CFLAGS) $NXT_C_CFLAGS \$(NXT_INCS) $NXT_C_INCLUDE \\
+	$nxt_dep_flags \\
+	-o $NXT_BUILD_DIR/$nxt_obj $nxt_src
+	$nxt_dep_post
+
+-include $NXT_BUILD_DIR/$nxt_dep
+
+END
+
+done
+
+cat << END >> $NXT_MAKEFILE
+
+.PHONY: ${NXT_C_MODULE}
+.PHONY: ${NXT_C_MODULE}-install
+.PHONY: ${NXT_C_MODULE}-uninstall
+
+all: ${NXT_C_MODULE}
+
+${NXT_C_MODULE}:	$NXT_BUILD_DIR/lib/unit/modules/${NXT_C_MODULE}.unit.so
+
+$NXT_BUILD_DIR/lib/unit/modules/${NXT_C_MODULE}.unit.so:	$nxt_objs
+	\$(NXT_MODULE_LINK) -o \$@ $nxt_objs $NXT_C_LDOPTS $NXT_LD_OPT
+
+
+install: ${NXT_C_MODULE}-install
+
+${NXT_C_MODULE}-install: ${NXT_C_MODULE} install-check
+	install -d \$(DESTDIR)$NXT_MODULESDIR
+	install -p $NXT_BUILD_DIR/lib/unit/modules/${NXT_C_MODULE}.unit.so \\
+		\$(DESTDIR)$NXT_MODULESDIR/
+
+
+uninstall: ${NXT_C_MODULE}-uninstall
+
+${NXT_C_MODULE}-uninstall:
+	rm -f \$(DESTDIR)$NXT_MODULESDIR/${NXT_C_MODULE}.unit.so
+	@rmdir -p \$(DESTDIR)$NXT_MODULESDIR 2>/dev/null || true
+
+END

@@ -1000,6 +1000,17 @@ static nxt_conf_vldt_object_t  nxt_conf_vldt_perl_members[] = {
 };
 
 
+static nxt_conf_vldt_object_t  nxt_conf_vldt_c_members[] = {
+    {
+        .name       = nxt_string("name"),
+        .type       = NXT_CONF_VLDT_STRING,
+        .flags      = NXT_CONF_VLDT_REQUIRED,
+    },
+
+    NXT_CONF_VLDT_NEXT(nxt_conf_vldt_common_members)
+};
+
+
 static nxt_conf_vldt_object_t  nxt_conf_vldt_ruby_members[] = {
     {
         .name       = nxt_string("script"),
@@ -2614,6 +2625,7 @@ nxt_conf_vldt_app(nxt_conf_validation_t *vldt, nxt_str_t *name,
         { nxt_conf_vldt_python, NULL },
         { nxt_conf_vldt_php,    NULL },
         { nxt_conf_vldt_object, nxt_conf_vldt_perl_members },
+        { nxt_conf_vldt_object, nxt_conf_vldt_c_members },
         { nxt_conf_vldt_object, nxt_conf_vldt_ruby_members },
         { nxt_conf_vldt_object, nxt_conf_vldt_java_members },
         { nxt_conf_vldt_object, nxt_conf_vldt_wasm_members },

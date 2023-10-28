@@ -1,0 +1,10 @@
+{
+	"listeners": {"*:7080": {"pass": "applications/blah"}},
+	"applications": {
+		"blah": {
+			"type": "c",
+			"working_directory": "./",
+			"name": "blah"
+		}
+	}
+}
