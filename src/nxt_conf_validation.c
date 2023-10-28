@@ -1005,6 +1005,9 @@ static nxt_conf_vldt_object_t  nxt_conf_vldt_c_members[] = {
         .name       = nxt_string("name"),
         .type       = NXT_CONF_VLDT_STRING,
         .flags      = NXT_CONF_VLDT_REQUIRED,
+    }, {
+        .name       = nxt_string("cc"),
+	.type       = NXT_CONF_VLDT_STRING
     },
 
     NXT_CONF_VLDT_NEXT(nxt_conf_vldt_common_members)

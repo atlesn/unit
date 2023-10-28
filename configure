@@ -143,7 +143,6 @@ case "$NXT_SYSTEM_PLATFORM" in
     ;;
 esac
 
-
 if [ $NXT_DEBUG = YES ]; then
     nxt_debug=1
 else

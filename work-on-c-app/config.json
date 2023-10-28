@@ -4,7 +4,8 @@
 		"blah": {
 			"type": "c",
 			"working_directory": "./",
-			"name": "blah"
+			"name": "blah",
+			"cc": "gcc"
 		}
 	}
 }

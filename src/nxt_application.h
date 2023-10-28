@@ -72,6 +72,12 @@ typedef struct {
 
 
 typedef struct {
+    char       *name;
+    char       *cc;
+} nxt_c_app_conf_t;
+
+
+typedef struct {
     nxt_str_t  script;
     uint32_t   threads;
     nxt_str_t  hooks;
@@ -131,6 +137,7 @@ struct nxt_common_app_conf_s {
         nxt_python_app_conf_t    python;
         nxt_php_app_conf_t       php;
         nxt_perl_app_conf_t      perl;
+        nxt_c_app_conf_t         c;
         nxt_ruby_app_conf_t      ruby;
         nxt_java_app_conf_t      java;
         nxt_wasm_app_conf_t      wasm;
