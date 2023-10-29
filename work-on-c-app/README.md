@@ -24,8 +24,8 @@ If the compilation is slow, the clients will receive 503 errors while the compil
 Compiling and linking is performed in a single step (the compiler is expected to call the linker).
 The compiler must return status code 0 when the compilation succeeds.
 
-Implicitly, the compiler flag **-shared** will always be added (to build a shared library) along with the **-o**
-output specifier and file names.
+Implicitly, the compiler flag **-shared** will always be added (to build a shared library) along with
+the **-o** output specifier and file names.
 All compiler flags are logged when the compiler starts.
 
 The app will not restart or fail fatally unless it cannot start the compiler.
@@ -40,9 +40,16 @@ to the app to force the compiler to run again.
 |------------------------------|---------------------------------------------------------------------------|
 | type                         | Always set to **c**                                                       |
 | working\_directory           | Where the application is located.                                         |
-| prefix                       | Name of the module to compile. The file **{prefix}**.c in the working dir will be compiled to **{prefix}**.o and then loaded |
+| prefix                       | Name of the module to compile.                                            |
 | cc                           | The compiler command to use, defaults to **clang**.                       |
 | flags                        | An array of compiler flags.
+
+The file **{prefix}**.c in the working dir will be compiled to **{prefix}**.o and then loaded.
+The **prefix** parameter must be a relative path (to **working_directory**) or an absolute path,
+hence it must begin with **./** **../** or **/**.
+
+Any include directories and other parameters with paths in the **flags** are also relative to
+**working_directory**.
 
 ### Example configuration
 
@@ -72,6 +79,9 @@ The compiler flags set here are the recommended minimum flags.
 	    }
 	  }
 	}
+
+Note that in this example the working directory is **./** which will be the same as the directory from
+which **unitd** was started.
 
 ## C module
 

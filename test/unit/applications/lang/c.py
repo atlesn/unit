@@ -6,20 +6,27 @@ class ApplicationC(ApplicationProto):
     def __init__(self, application_type='c'):
         self.application_type = application_type
 
-    def load(self, prefix, name='psgi', **kwargs):
-        path = f'{option.test_dir}/c/{prefix}/'
+    def load(self, prefix, name='c', **kwargs):
 
         self._load_conf(
-            {
-                "listeners": {"*:7080": {"pass": f"applications/{prefix}"}},
+	    {
+                "listeners": {"*:7080": {"pass": "applications/x"}},
                 "applications": {
-                    prefix: {
+                    "x": {
                         "type": self.get_application_type(),
-                        "processes": {"spare": 0},
-                        "working_directory": path,
-                        "name": f'{name}'
-                    }
-                },
+                        "working_directory": f'{option.test_dir}/c',
+                        "prefix": f"./{prefix}",
+                        "cc": "/usr/bin/clang",
+                        "flags": [
+                            "-B/usr/bin",
+                            "-I../../src",
+                            "-I../../build/include",
+                            "-Wall",
+                            "-Wextra",
+                            "-Werror"
+                        ]
+                   }
+              }
             },
             **kwargs,
         )
