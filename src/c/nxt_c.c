@@ -153,8 +153,7 @@ nxt_c_load_check(nxt_unit_ctx_t *ctx)
 	return NXT_UNIT_ERROR;
     }
 
-printf("NOT IMPLEMENTED\n");
-   nxt_assert(0);
+    cctx->dl = dl;
 
    return NXT_OK;
 /*
@@ -209,8 +208,11 @@ nxt_c_compile_reset(nxt_unit_ctx_t *ctx)
 
     cctx->cc_done = 0;
 
-    if (cctx->dl)
+    if (cctx->dl) {
+        nxt_trace(task, "C: Closing dynamic library");
         dlclose(cctx->dl);
+	cctx->dl = NULL;
+    }
 }
 
 static nxt_int_t
@@ -301,6 +303,8 @@ nxt_c_start(nxt_task_t *task, nxt_process_data_t *data)
     if (rc != NXT_UNIT_ERROR) {
         rc = nxt_unit_run(unit_ctx);
     }
+
+    nxt_c_compile_reset(unit_ctx);
 
     nxt_unit_done(unit_ctx);
 
