@@ -271,9 +271,9 @@ static nxt_conf_map_t  nxt_perl_app_conf[] = {
 
 static nxt_conf_map_t  nxt_c_app_conf[] = {
     {
-        nxt_string("name"),
+        nxt_string("prefix"),
         NXT_CONF_MAP_CSTRZ,
-        offsetof(nxt_common_app_conf_t, u.c.name),
+        offsetof(nxt_common_app_conf_t, u.c.prefix),
     },
     {
         nxt_string("cc"),

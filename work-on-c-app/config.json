@@ -4,7 +4,7 @@
 		"blah": {
 			"type": "c",
 			"working_directory": "./",
-			"name": "blah",
+			"prefix": "./blah",
 			"cc": "/usr/bin/gcc"
 		}
 	}

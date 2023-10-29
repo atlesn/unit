@@ -15,6 +15,7 @@ typedef struct {
     nxt_c_app_conf_t         *c;
     nxt_pid_t                cc_pid;
     nxt_bool_t               cc_done;
+    void                     *dl;
 } nxt_c_ctx_t;
 
 
@@ -49,7 +50,7 @@ nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
 {
     nxt_int_t              rc;
     size_t                 name_length;
-    char                   buf1[4], buf2[4], buf3[128], buf4[128];
+    char                   buf1[8], buf2[8], buf3[128], buf4[128];
     char                   *argv[6], *envp[1];
 
     rc = NXT_OK;
@@ -57,18 +58,18 @@ nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
     memset(argv, 0, sizeof(argv));
     memset(envp, 0, sizeof(envp));
 
-    name_length = strlen(c->name);
+    name_length = strlen(c->prefix);
 
     if (name_length + 3 > sizeof(buf3)) {
-	nxt_alert(task, "Name %s is too long", c->name);
+	nxt_alert(task, "Name %s is too long", c->prefix);
 	goto fail;
     }
 
-    nxt_memcpy(buf1, "-c", 3);
+    nxt_memcpy(buf1, "-shared", 8);
     nxt_memcpy(buf2, "-o", 3);
-    nxt_memcpy(buf3, c->name, name_length);
+    nxt_memcpy(buf3, c->prefix, name_length);
     nxt_memcpy(buf3 + name_length, ".o", 3);
-    nxt_memcpy(buf4, c->name, name_length);
+    nxt_memcpy(buf4, c->prefix, name_length);
     nxt_memcpy(buf4 + name_length, ".c", 3);
 
     argv[0] = c->cc;
@@ -100,7 +101,103 @@ nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
 }
 
 static nxt_int_t
-nxt_v_compile_check(nxt_unit_ctx_t *ctx)
+nxt_c_load_check(nxt_unit_ctx_t *ctx)
+{
+//    nxt_int_t              rc;
+    nxt_c_ctx_t            *cctx;
+    nxt_c_app_conf_t       *c;
+    nxt_task_t             *task;
+    size_t                 name_length;
+    char                   buf[128];
+    void                   *dl;
+
+    cctx = ctx->data;
+    c = cctx->c;
+    task = cctx->task;
+
+    if (cctx->dl != NULL)
+	return NXT_UNIT_OK;
+
+    name_length = strlen(c->prefix);
+    if (name_length + 3 > sizeof(buf)) {
+        nxt_alert(task, "Name %s is too long", c->prefix);
+	return NXT_UNIT_ERROR;
+    }
+    nxt_memcpy(buf, c->prefix, name_length);
+    nxt_memcpy(buf + name_length, ".o", 3);
+
+    // print cwd
+    printf("CWD: %s\n:", getcwd(NULL, 0));
+
+    dl = dlopen(buf, RTLD_GLOBAL | RTLD_LAZY);
+    if (nxt_slow_path(dl == NULL)) {
+	nxt_alert(task, "dlopen(\"%s\") failed: \"%s\"",
+		  buf, dlerror());
+	return NXT_UNIT_ERROR;
+    }
+
+printf("NOT IMPLEMENTED\n");
+   nxt_assert(0);
+
+   return NXT_OK;
+/*
+    char              *err;
+    void              *dl;
+    nxt_app_module_t  *app;
+
+    dl = dlopen(name, RTLD_GLOBAL | RTLD_LAZY);
+
+    if (nxt_slow_path(dl == NULL)) {
+        err = dlerror();
+        nxt_alert(task, "dlopen(\"%s\") failed: \"%s\"",
+                  name, err != NULL ? err : "(null)");
+        return NULL;
+    }
+
+    app = dlsym(dl, "nxt_app_module");
+
+    if (nxt_slow_path(app == NULL)) {
+        err = dlerror();
+        nxt_alert(task, "dlsym(\"%s\", \"nxt_app_module\") failed: \"%s\"",
+                  name, err != NULL ? err : "(null)");
+
+        if (dlclose(dl) != 0) {
+            err = dlerror();
+            nxt_alert(task, "dlclose(\"%s\") failed: \"%s\"",
+                      name, err != NULL ? err : "(null)");
+        }
+    }
+
+    return app;*/
+}
+
+static void
+nxt_c_compile_reset(nxt_unit_ctx_t *ctx)
+{
+    nxt_int_t              cc_rc;
+    nxt_c_ctx_t            *cctx;
+    nxt_task_t             *task;
+
+    cctx = ctx->data;
+    task = cctx->task;
+
+    nxt_log(task, NXT_LOG_INFO, "C: Resetting compiler state");
+
+    if (cctx->cc_pid > 0) {
+        if (nxt_app_transient_process_wait(task, &cc_rc) == NXT_AGAIN) {
+	    return;
+	}
+	cctx->cc_pid = 0;
+    }
+
+    cctx->cc_done = 0;
+
+    if (cctx->dl)
+        dlclose(cctx->dl);
+}
+
+static nxt_int_t
+nxt_c_compile_check(nxt_unit_ctx_t *ctx)
 {
     nxt_int_t              rc;
     nxt_int_t              cc_rc;
@@ -121,7 +218,7 @@ nxt_v_compile_check(nxt_unit_ctx_t *ctx)
     if (!cctx->cc_pid) {
         rc = nxt_c_compile(task, c, &cctx->cc_pid);
         if (nxt_slow_path(rc != NXT_OK)) {
-            nxt_alert(task, "C: Failed to run compiler %s", c->name);
+            nxt_alert(task, "C: Failed to run compiler %s", c->prefix);
     	    return NXT_UNIT_ERROR;
         }
 	return NXT_UNIT_AGAIN;
@@ -131,13 +228,16 @@ nxt_v_compile_check(nxt_unit_ctx_t *ctx)
         case NXT_OK:
 	    if (cc_rc != 0) {
 	        nxt_alert(task, "C: Compiler failed with return value %i", cc_rc);
-	        return NXT_UNIT_ERROR;
+	        return NXT_UNIT_AGAIN;
 	    }
 	    nxt_log(task, NXT_LOG_INFO, "C: Compiler finished successfully");
 	    break;
 	case NXT_AGAIN:
 	    nxt_log(task, NXT_LOG_INFO, "C: Compiler not finished yet");
 	    return NXT_UNIT_AGAIN;
+	default:
+	    nxt_alert(task, "C: Compiler failed");
+	    return NXT_UNIT_ERROR;
     };
 
     cctx->cc_pid = 0;
@@ -169,7 +269,7 @@ nxt_c_start(nxt_task_t *task, nxt_process_data_t *data)
     c_init.ctx_data = &cctx;
 
     nxt_log(task, NXT_LOG_INFO, "C: Starting in %s name is %s working dir is %s cc is %s",
-    	__func__, c->name, common_conf->working_directory, c->cc);
+    	__func__, c->prefix, common_conf->working_directory, c->cc);
 
     unit_ctx = nxt_unit_init(&c_init);
     if (nxt_slow_path(unit_ctx == NULL)) {
@@ -180,10 +280,10 @@ nxt_c_start(nxt_task_t *task, nxt_process_data_t *data)
     cctx.task = task;
     cctx.c = c;
 
-    rc = nxt_v_compile_check(unit_ctx);
-    nxt_assert(rc == NXT_UNIT_AGAIN);
-
-    rc = nxt_unit_run(unit_ctx);
+    rc = nxt_c_compile_check(unit_ctx);
+    if (rc != NXT_UNIT_ERROR) {
+        rc = nxt_unit_run(unit_ctx);
+    }
 
     nxt_unit_done(unit_ctx);
 
@@ -204,13 +304,25 @@ nxt_c_start(nxt_task_t *task, nxt_process_data_t *data)
 static void
 nxt_c_request_handler(nxt_unit_request_info_t *req)
 {
-    nxt_int_t           rc;
+    switch (nxt_c_compile_check(req->ctx)) {
+        case NXT_UNIT_OK:
+	    break;
+	case NXT_UNIT_ERROR:
+	    nxt_c_compile_reset(req->ctx);
+	    /* Fall through */
+	default:
+	    nxt_unit_request_done(req, NXT_UNIT_ERROR);
+	    return;
+    };
 
-    rc = nxt_v_compile_check(req->ctx);
-    if (rc != NXT_UNIT_OK) {
-	nxt_unit_request_done(req, NXT_UNIT_ERROR);
-	return;
-    }
+    switch (nxt_c_load_check(req->ctx)) {
+    	case NXT_UNIT_OK:
+	    break;
+	default:
+	    nxt_c_compile_reset(req->ctx);
+	    nxt_unit_request_done(req, NXT_UNIT_ERROR);
+	    return;
+    };
 
     nxt_unit_request_done(req, NXT_UNIT_OK);
 }

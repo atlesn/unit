@@ -197,6 +197,8 @@ static nxt_int_t nxt_conf_vldt_php(nxt_conf_validation_t *vldt,
     nxt_conf_value_t *value, void *data);
 static nxt_int_t nxt_conf_vldt_php_option(nxt_conf_validation_t *vldt,
     nxt_str_t *name, nxt_conf_value_t *value);
+static nxt_int_t nxt_conf_vldt_c_prefix(nxt_conf_validation_t *vldt,
+    nxt_conf_value_t *value, void *data);
 static nxt_int_t nxt_conf_vldt_java_classpath(nxt_conf_validation_t *vldt,
     nxt_conf_value_t *value);
 static nxt_int_t nxt_conf_vldt_java_option(nxt_conf_validation_t *vldt,
@@ -1002,9 +1004,10 @@ static nxt_conf_vldt_object_t  nxt_conf_vldt_perl_members[] = {
 
 static nxt_conf_vldt_object_t  nxt_conf_vldt_c_members[] = {
     {
-        .name       = nxt_string("name"),
+        .name       = nxt_string("prefix"),
         .type       = NXT_CONF_VLDT_STRING,
         .flags      = NXT_CONF_VLDT_REQUIRED,
+	.validator  = nxt_conf_vldt_c_prefix,
     }, {
         .name       = nxt_string("cc"),
 	.type       = NXT_CONF_VLDT_STRING
@@ -3229,6 +3232,49 @@ nxt_conf_vldt_php_option(nxt_conf_validation_t *vldt, nxt_str_t *name,
     }
 
     return NXT_OK;
+}
+
+
+static nxt_int_t
+nxt_conf_vldt_c_prefix(nxt_conf_validation_t *vldt, nxt_conf_value_t *value,
+    void *data)
+{
+    nxt_str_t             name;
+    const unsigned char   *str;
+
+    if (nxt_conf_type(value) != NXT_CONF_STRING) {
+        return nxt_conf_vldt_error(vldt, "The \"prefix\" parameter must "
+                                   "contain a string value.");
+    }
+
+    nxt_conf_get_string(value, &name);
+
+    str = name.start;
+
+    // OK to start with ./  ../  /
+    if (name.length <= 1)
+        return nxt_conf_vldt_error(vldt, "The \"prefix\" parameter must "
+				   "contain a string value with at least 2 characters.");
+
+    if (str[0] == '/')
+        return NXT_OK;
+
+    if (str[0] == '.' && str[1] == '/') {
+        if (name.length < 3)
+	    return nxt_conf_vldt_error(vldt, "The \"prefix\" parameter must "
+	                               "contain a file name.");
+        return NXT_OK;
+    }
+
+    if (str[0] == '.' && str[1] == '.' && str[2] == '/') {
+        if (name.length < 4)
+	    return nxt_conf_vldt_error(vldt, "The \"prefix\" parameter must "
+	                               "contain a file name.");
+        return NXT_OK;
+    }
+
+    return nxt_conf_vldt_error(vldt, "The \"prefix\" parameter must "
+			       "start with ./ , ../ or /");
 }
 
 
