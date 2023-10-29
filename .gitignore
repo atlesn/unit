@@ -1,4 +1,5 @@
 /build/
 Makefile
 *.pyc
+*.o
 __pycache__/

@@ -9,6 +9,8 @@
 #include <nxt_unit.h>
 #include <nxt_time.h>
 
+#include <c/nxt_c.h>
+
 typedef struct {
     nxt_unit_ctx_t           *ctx;
     nxt_task_t               *task;
@@ -18,8 +20,8 @@ typedef struct {
     nxt_pid_t                ld_pid;
     nxt_bool_t               ld_done;
     void                     *dl;
+    nxt_c_mod_t              *mod;
 } nxt_c_ctx_t;
-
 
 static uint32_t  nxt_c_compat[] = {
     NXT_VERNUM, NXT_DEBUG,
@@ -71,7 +73,7 @@ nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
     while ((value = nxt_conf_get_array_element(c->flags, i++)) != NULL) {
     }
 
-    argv = nxt_zalloc(i + 6 * sizeof(*argv));
+    argv = nxt_zalloc((i + 6) * sizeof(*argv));
     if (argv == NULL) {
 	nxt_alert(task, "C: Failed to allocate memory for compiler argv");
         goto fail;
@@ -157,6 +159,8 @@ nxt_c_load_check(nxt_unit_ctx_t *ctx)
     size_t                 name_length;
     char                   buf[128];
     void                   *dl;
+    nxt_c_mod_t            *mod;
+    char                   *err;
 
     cctx = ctx->data;
     c = cctx->c;
@@ -173,9 +177,6 @@ nxt_c_load_check(nxt_unit_ctx_t *ctx)
     nxt_memcpy(buf, c->prefix, name_length);
     nxt_memcpy(buf + name_length, ".o", 3);
 
-    // print cwd
-    printf("CWD: %s\n:", getcwd(NULL, 0));
-
     dl = dlopen(buf, RTLD_GLOBAL | RTLD_LAZY);
     if (nxt_slow_path(dl == NULL)) {
 	nxt_alert(task, "dlopen(\"%s\") failed: \"%s\"",
@@ -183,40 +184,22 @@ nxt_c_load_check(nxt_unit_ctx_t *ctx)
 	return NXT_UNIT_ERROR;
     }
 
+    nxt_log(task, NXT_LOG_INFO, "C: Module %s loaded, cwd is %s, looking for symbols",
+        buf, getcwd(NULL, 0));
+
+    mod = dlsym(dl, "nxt_c_module");
+    if (nxt_slow_path(mod == NULL)) {
+        err = dlerror();
+	nxt_alert(task, "dlsym(\"%s\", \"nxt_c_module\") failed: \"%s\"",
+		  buf, err != NULL ? err : "(null)");
+        dlclose(dl);
+	return NXT_UNIT_ERROR;
+    }
+
     cctx->dl = dl;
+    cctx->mod = mod;
 
-    nxt_log(task, NXT_LOG_INFO, "C: Module %s loaded, looking for symbols", buf);
-
-   return NXT_OK;
-/*
-    char              *err;
-    void              *dl;
-    nxt_app_module_t  *app;
-
-    dl = dlopen(name, RTLD_GLOBAL | RTLD_LAZY);
-
-    if (nxt_slow_path(dl == NULL)) {
-        err = dlerror();
-        nxt_alert(task, "dlopen(\"%s\") failed: \"%s\"",
-                  name, err != NULL ? err : "(null)");
-        return NULL;
-    }
-
-    app = dlsym(dl, "nxt_app_module");
-
-    if (nxt_slow_path(app == NULL)) {
-        err = dlerror();
-        nxt_alert(task, "dlsym(\"%s\", \"nxt_app_module\") failed: \"%s\"",
-                  name, err != NULL ? err : "(null)");
-
-        if (dlclose(dl) != 0) {
-            err = dlerror();
-            nxt_alert(task, "dlclose(\"%s\") failed: \"%s\"",
-                      name, err != NULL ? err : "(null)");
-        }
-    }
-
-    return app;*/
+    return NXT_UNIT_OK;
 }
 
 static void
@@ -244,6 +227,7 @@ nxt_c_compile_reset(nxt_unit_ctx_t *ctx)
         nxt_trace(task, "C: Closing dynamic library");
         dlclose(cctx->dl);
 	cctx->dl = NULL;
+	cctx->mod = NULL;
     }
 }
 
@@ -357,24 +341,35 @@ nxt_c_start(nxt_task_t *task, nxt_process_data_t *data)
 static void
 nxt_c_request_handler(nxt_unit_request_info_t *req)
 {
-    switch (nxt_c_compile_check(req->ctx)) {
+    nxt_c_ctx_t            *cctx;
+    nxt_unit_ctx_t         *ctx;
+
+    ctx = req->ctx;
+    cctx = ctx->data;
+
+    switch (nxt_c_compile_check(ctx)) {
         case NXT_UNIT_OK:
 	    break;
 	case NXT_UNIT_ERROR:
-	    nxt_c_compile_reset(req->ctx);
+	    nxt_c_compile_reset(ctx);
 	    /* Fall through */
 	default:
 	    nxt_unit_request_done(req, NXT_UNIT_ERROR);
 	    return;
     };
 
-    switch (nxt_c_load_check(req->ctx)) {
+    switch (nxt_c_load_check(ctx)) {
     	case NXT_UNIT_OK:
 	    break;
 	default:
-	    nxt_c_compile_reset(req->ctx);
+	    nxt_c_compile_reset(ctx);
 	    nxt_unit_request_done(req, NXT_UNIT_ERROR);
 	    return;
+    };
+
+    if (cctx->mod->request_handler(req) != NXT_UNIT_OK) {
+        nxt_unit_request_done(req, NXT_UNIT_ERROR);
+        return;
     };
 
     nxt_unit_request_done(req, NXT_UNIT_OK);
