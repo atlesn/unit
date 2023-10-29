@@ -15,6 +15,8 @@ typedef struct {
     nxt_c_app_conf_t         *c;
     nxt_pid_t                cc_pid;
     nxt_bool_t               cc_done;
+    nxt_pid_t                ld_pid;
+    nxt_bool_t               ld_done;
     void                     *dl;
 } nxt_c_ctx_t;
 
@@ -49,9 +51,9 @@ static nxt_int_t
 nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
 {
     nxt_int_t              rc;
-    size_t                 name_length;
-    char                   buf1[8], buf2[8], buf3[128], buf4[128];
-    char                   *argv[6], *envp[1];
+    size_t                 name_length, ld_length;
+    char                   buf1[128], buf2[8], buf3[8], out[128], in[128];
+    char                   *argv[7], *envp[1];
 
     rc = NXT_OK;
 
@@ -60,24 +62,39 @@ nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
 
     name_length = strlen(c->prefix);
 
-    if (name_length + 3 > sizeof(buf3)) {
+    if (name_length + 3 > sizeof(out)) {
 	nxt_alert(task, "Name %s is too long", c->prefix);
 	goto fail;
     }
 
-    nxt_memcpy(buf1, "-shared", 8);
-    nxt_memcpy(buf2, "-o", 3);
-    nxt_memcpy(buf3, c->prefix, name_length);
-    nxt_memcpy(buf3 + name_length, ".o", 3);
-    nxt_memcpy(buf4, c->prefix, name_length);
-    nxt_memcpy(buf4 + name_length, ".c", 3);
+
+    if (c->ld != NULL) {
+    	ld_length = strlen(c->ld);
+
+        if (ld_length + 3 > sizeof(buf1)) {
+            nxt_alert(task, "Name %s is too long", c->ld);
+    	    goto fail;
+        }
+
+	nxt_memcpy(buf1, "-B", 3);
+	nxt_memcpy(buf1 + 2, c->ld, ld_length + 1);
+    } else {
+        *buf1= '\0';
+    }
+    nxt_memcpy(buf2, "-shared", 8);
+    nxt_memcpy(buf3, "-o", 3);
+    nxt_memcpy(out, c->prefix, name_length);
+    nxt_memcpy(out + name_length, ".o", 3);
+    nxt_memcpy(in, c->prefix, name_length);
+    nxt_memcpy(in + name_length, ".c", 3);
 
     argv[0] = c->cc;
     argv[1] = buf1;
     argv[2] = buf2;
     argv[3] = buf3;
-    argv[4] = buf4;
-    argv[5] = NULL;
+    argv[4] = out;
+    argv[5] = in;
+    argv[6] = NULL;
     envp[0] = NULL;
 
     nxt_log(task, NXT_LOG_INFO, "C: Running compiler: %s %s %s %s %s", argv[0], argv[1],

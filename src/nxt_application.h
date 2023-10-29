@@ -74,6 +74,7 @@ typedef struct {
 typedef struct {
     char       *prefix;
     char       *cc;
+    char       *ld;
 } nxt_c_app_conf_t;
 
 

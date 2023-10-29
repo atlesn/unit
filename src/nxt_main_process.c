@@ -280,6 +280,11 @@ static nxt_conf_map_t  nxt_c_app_conf[] = {
 	NXT_CONF_MAP_CSTRZ,
 	offsetof(nxt_common_app_conf_t, u.c.cc),
     },
+    {
+        nxt_string("ld"),
+	NXT_CONF_MAP_CSTRZ,
+	offsetof(nxt_common_app_conf_t, u.c.ld),
+    },
 };
 
 

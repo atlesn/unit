@@ -5,7 +5,8 @@
 			"type": "c",
 			"working_directory": "./",
 			"prefix": "./blah",
-			"cc": "/usr/bin/gcc"
+			"cc": "/usr/bin/gcc",
+			"ld": "/usr/bin"
 		}
 	}
 }
