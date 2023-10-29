@@ -72,9 +72,9 @@ typedef struct {
 
 
 typedef struct {
-    char       *prefix;
-    char       *cc;
-    char       *ld;
+    char              *prefix;
+    char              *cc;
+    nxt_conf_value_t  *flags;
 } nxt_c_app_conf_t;
 
 

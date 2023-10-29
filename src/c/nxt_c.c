@@ -51,54 +51,77 @@ static nxt_int_t
 nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
 {
     nxt_int_t              rc;
-    size_t                 name_length, ld_length;
-    char                   buf1[128], buf2[8], buf3[8], out[128], in[128];
-    char                   *argv[7], *envp[1];
+    size_t                 name_length;
+    nxt_conf_value_t       *value;
+    nxt_str_t              str;
+    uint32_t               i, wpos;
+    char                   **argv, *envp[1], **ptr;
 
     rc = NXT_OK;
 
-    memset(argv, 0, sizeof(argv));
-    memset(envp, 0, sizeof(envp));
+    argv = NULL;
+    envp[0] = NULL;
+    wpos = 0;
 
     name_length = strlen(c->prefix);
 
-    if (name_length + 3 > sizeof(out)) {
-	nxt_alert(task, "Name %s is too long", c->prefix);
+    nxt_assert(c->flags != NULL);
+
+    i = 0;
+    while ((value = nxt_conf_get_array_element(c->flags, i++)) != NULL) {
+    }
+
+    argv = nxt_zalloc(i + 6 * sizeof(*argv));
+    if (argv == NULL) {
+	nxt_alert(task, "C: Failed to allocate memory for compiler argv");
+        goto fail;
+    }
+
+    argv[wpos] = nxt_strdup(c->cc);
+    if (argv[wpos++] == NULL) {
+        nxt_alert(task, "C: Failed to allocate memory for compiler argument");
+        goto fail;
+    }
+
+    i = 0;
+    while ((value = nxt_conf_get_array_element(c->flags, i++)) != NULL) {
+        nxt_conf_get_string(value, &str);
+	argv[wpos] = nxt_malloc(str.length + 1);
+	if (argv[wpos] == NULL) {
+	    nxt_alert(task, "C: Failed to allocate memory for compiler argument %u of length %u",
+	    	(nxt_uint_t) i, (nxt_uint_t) str.length);
+	    goto fail;
+	}
+	nxt_cpystrn((u_char *) argv[wpos++], str.start, str.length + 1);
+    }
+
+    nxt_assert(i == wpos);
+
+    /*
+     * TODO : Might need to set the same compiler arguments as when unit
+     *        was compiled, like pie, fPIC, etc.
+     */
+
+    if ((argv[wpos++] = nxt_strdup("-shared")) == NULL ||
+        (argv[wpos++] = nxt_strdup("-o")) == NULL ||
+	(argv[wpos++] = nxt_malloc(name_length + 3)) == NULL ||
+	(argv[wpos++] = nxt_malloc(name_length + 3)) == NULL
+    ) {
+	nxt_alert(task, "C: Failed to allocate memory for compiler argument");
 	goto fail;
     }
 
+    nxt_memcpy(argv[wpos - 2], c->prefix, name_length);
+    nxt_memcpy(argv[wpos - 2] + name_length, ".o", 3);
+    nxt_memcpy(argv[wpos - 1], c->prefix, name_length);
+    nxt_memcpy(argv[wpos - 1] + name_length, ".c", 3);
 
-    if (c->ld != NULL) {
-    	ld_length = strlen(c->ld);
+    argv[wpos] = NULL;
 
-        if (ld_length + 3 > sizeof(buf1)) {
-            nxt_alert(task, "Name %s is too long", c->ld);
-    	    goto fail;
-        }
-
-	nxt_memcpy(buf1, "-B", 3);
-	nxt_memcpy(buf1 + 2, c->ld, ld_length + 1);
-    } else {
-        *buf1= '\0';
+    nxt_log(task, NXT_LOG_INFO, "C: Running compiler");
+    for (i = 0; i < wpos; i++) {
+	nxt_log(task, NXT_LOG_INFO, "C: argv[%ui] = %s", (nxt_uint_t) i, argv[i]);
     }
-    nxt_memcpy(buf2, "-shared", 8);
-    nxt_memcpy(buf3, "-o", 3);
-    nxt_memcpy(out, c->prefix, name_length);
-    nxt_memcpy(out + name_length, ".o", 3);
-    nxt_memcpy(in, c->prefix, name_length);
-    nxt_memcpy(in + name_length, ".c", 3);
-
-    argv[0] = c->cc;
-    argv[1] = buf1;
-    argv[2] = buf2;
-    argv[3] = buf3;
-    argv[4] = out;
-    argv[5] = in;
-    argv[6] = NULL;
-    envp[0] = NULL;
-
-    nxt_log(task, NXT_LOG_INFO, "C: Running compiler: %s %s %s %s %s", argv[0], argv[1],
-    	argv[2], argv[3], argv[4]);
 
     rc = nxt_app_transient_process_execute(task, c->cc, argv, envp, cc_pid);
     if (rc != NXT_OK) {
@@ -113,6 +136,13 @@ nxt_c_compile(nxt_task_t *task, nxt_c_app_conf_t *c, nxt_pid_t *cc_pid)
     rc = NXT_ERROR;
 
     out:
+
+    if (argv != NULL) {
+        for (ptr = argv; *ptr != NULL; ptr++) {
+	    nxt_free(*ptr);
+	}
+	nxt_free(argv);
+    }
 
     return rc;
 }
@@ -154,6 +184,8 @@ nxt_c_load_check(nxt_unit_ctx_t *ctx)
     }
 
     cctx->dl = dl;
+
+    nxt_log(task, NXT_LOG_INFO, "C: Module %s loaded, looking for symbols", buf);
 
    return NXT_OK;
 /*

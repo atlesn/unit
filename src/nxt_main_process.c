@@ -281,9 +281,9 @@ static nxt_conf_map_t  nxt_c_app_conf[] = {
 	offsetof(nxt_common_app_conf_t, u.c.cc),
     },
     {
-        nxt_string("ld"),
-	NXT_CONF_MAP_CSTRZ,
-	offsetof(nxt_common_app_conf_t, u.c.ld),
+        nxt_string("flags"),
+	NXT_CONF_MAP_PTR,
+	offsetof(nxt_common_app_conf_t, u.c.flags),
     },
 };
 

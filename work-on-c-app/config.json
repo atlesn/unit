@@ -5,8 +5,8 @@
 			"type": "c",
 			"working_directory": "./",
 			"prefix": "./blah",
-			"cc": "/usr/bin/gcc",
-			"ld": "/usr/bin"
+			"cc": "/usr/bin/clang",
+			"flags": ["-B/usr/bin"]
 		}
 	}
 }

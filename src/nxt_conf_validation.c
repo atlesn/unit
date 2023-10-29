@@ -199,6 +199,8 @@ static nxt_int_t nxt_conf_vldt_php_option(nxt_conf_validation_t *vldt,
     nxt_str_t *name, nxt_conf_value_t *value);
 static nxt_int_t nxt_conf_vldt_c_prefix(nxt_conf_validation_t *vldt,
     nxt_conf_value_t *value, void *data);
+static nxt_int_t nxt_conf_vldt_c_flag(nxt_conf_validation_t *vldt,
+    nxt_conf_value_t *value);
 static nxt_int_t nxt_conf_vldt_java_classpath(nxt_conf_validation_t *vldt,
     nxt_conf_value_t *value);
 static nxt_int_t nxt_conf_vldt_java_option(nxt_conf_validation_t *vldt,
@@ -1010,10 +1012,14 @@ static nxt_conf_vldt_object_t  nxt_conf_vldt_c_members[] = {
 	.validator  = nxt_conf_vldt_c_prefix,
     }, {
         .name       = nxt_string("cc"),
-	.type       = NXT_CONF_VLDT_STRING
+	.type       = NXT_CONF_VLDT_STRING,
+        .flags      = NXT_CONF_VLDT_REQUIRED,
     }, {
-        .name       = nxt_string("ld"),
-	.type       = NXT_CONF_VLDT_STRING
+        .name       = nxt_string("flags"),
+	.type       = NXT_CONF_VLDT_ARRAY,
+        .flags      = NXT_CONF_VLDT_REQUIRED,
+        .validator  = nxt_conf_vldt_array_iterator,
+        .u.array    = nxt_conf_vldt_c_flag,
     },
 
     NXT_CONF_VLDT_NEXT(nxt_conf_vldt_common_members)
@@ -3278,6 +3284,27 @@ nxt_conf_vldt_c_prefix(nxt_conf_validation_t *vldt, nxt_conf_value_t *value,
 
     return nxt_conf_vldt_error(vldt, "The \"prefix\" parameter must "
 			       "start with ./ , ../ or /");
+}
+
+
+static nxt_int_t
+nxt_conf_vldt_c_flag(nxt_conf_validation_t *vldt, nxt_conf_value_t *value)
+{
+    nxt_str_t  str;
+
+    if (nxt_conf_type(value) != NXT_CONF_STRING) {
+        return nxt_conf_vldt_error(vldt, "The \"flags\" array "
+                                   "must contain only string values.");
+    }
+
+    nxt_conf_get_string(value, &str);
+
+    if (memchr(str.start, '\0', str.length) != NULL) {
+        return nxt_conf_vldt_error(vldt, "The \"flags\" array must not "
+                                   "contain strings with null character.");
+    }
+
+    return NXT_OK;
 }
 
 
