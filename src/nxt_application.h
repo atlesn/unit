@@ -162,6 +162,9 @@ struct nxt_app_module_s {
 };
 
 
+NXT_EXPORT nxt_int_t nxt_app_transient_process_execute(nxt_task_t *task, char *name,
+	char **argv, char **envp, nxt_pid_t *proc_pid);
+NXT_EXPORT nxt_int_t nxt_app_transient_process_wait(nxt_task_t *task, nxt_int_t *proc_rc);
 nxt_app_lang_module_t *nxt_app_lang_module(nxt_runtime_t *rt, nxt_str_t *name);
 nxt_app_type_t nxt_app_parse_type(u_char *p, size_t length);
 

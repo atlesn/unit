@@ -5,7 +5,7 @@
 			"type": "c",
 			"working_directory": "./",
 			"name": "blah",
-			"cc": "gcc"
+			"cc": "/usr/bin/gcc"
 		}
 	}
 }

@@ -79,10 +79,15 @@ static uint32_t  compat[] = {
 static nxt_lvlhsh_t           nxt_proto_processes;
 static nxt_queue_t            nxt_proto_children;
 static nxt_bool_t             nxt_proto_exiting;
+/* TODO : See comment in sigterm handler */
+/* static nxt_bool_t             nxt_proto_sigint; */
 
 static nxt_app_module_t       *nxt_app;
 static nxt_common_app_conf_t  *nxt_app_conf;
 
+static nxt_atomic_int_t       nxt_app_transient;
+static nxt_atomic_int_t       nxt_app_transient_pid;
+static nxt_atomic_int_t       nxt_app_transient_rc;
 
 static const nxt_port_handlers_t  nxt_discovery_process_port_handlers = {
     .quit         = nxt_signal_quit_handler,
@@ -747,10 +752,26 @@ nxt_proto_signal_handler(nxt_task_t *task, void *obj, void *data)
 static void
 nxt_proto_sigterm_handler(nxt_task_t *task, void *obj, void *data)
 {
+    int         s;
+
+    s = (int) (uintptr_t) obj;
+
     nxt_trace(task, "signal signo:%d (%s) received",
-              (int) (uintptr_t) obj, data);
+              s, data);
 
     nxt_proto_quit_children(task);
+
+/*
+ * TODO : Enable if needed or remove 
+ *        Sometimes we do not quit properly if queue does not
+ *        become empty.
+ */
+/*    if (nxt_proto_sigint) {
+        nxt_trace(task, "double SIGINT, exiting immediately");
+	exit(1);
+    } else if (s == SIGINT) {
+	nxt_proto_sigint = 1;
+    }*/
 
     nxt_proto_exiting = 1;
 
@@ -857,6 +878,120 @@ nxt_proto_sigchld_handler(nxt_task_t *task, void *obj, void *data)
             return;
         }
     }
+}
+
+
+nxt_int_t
+nxt_app_transient_process_execute(nxt_task_t *task, char *name,
+	char **argv, char **envp, nxt_pid_t *proc_pid)
+{
+    pid_t                  pid;
+    nxt_atomic_int_t       buf;
+
+    pid = nxt_process_execute(task, name, argv, envp);
+    if (pid == -1) {
+        nxt_log(task, NXT_LOG_ERR, "Failed to execute transient process %s", name);
+        return NXT_ERROR;
+    }
+    else {
+        buf = nxt_atomic_xchg(&nxt_app_transient_pid, pid);
+        nxt_assert(buf == 0);
+        buf = nxt_atomic_cmp_set(&nxt_app_transient, 0, 1);
+        nxt_assert(buf);
+
+        (void)(buf);
+
+        nxt_log(task, NXT_LOG_DEBUG, "Waiting for transient process %i %s to finish",
+                (nxt_int_t) pid, name);
+
+	*proc_pid = pid;
+    }
+
+    return NXT_OK;
+}
+
+
+nxt_int_t
+nxt_app_transient_process_wait(nxt_task_t *task, nxt_int_t *proc_rc)
+{
+    nxt_atomic_int_t       buf;
+    nxt_pid_t              pid;
+    nxt_err_t              err;
+    int                    status;
+
+    nxt_assert(nxt_app_transient_pid != 0);
+
+    /*
+     * TODO : The waitpid() should possibly be in a signal handler,
+     *        but the app does not receieve signals as of now.
+     */
+    for ( ;; ) {
+        pid = waitpid(nxt_app_transient_pid, &status, WNOHANG);
+
+        if (pid == -1) {
+
+            switch (err = nxt_errno) {
+            case NXT_ECHILD:
+	        nxt_alert(task, "waitpid() for transient process failed with ECHILD");
+                return NXT_ERROR;
+
+            case NXT_EINTR:
+                continue;
+
+            default:
+                nxt_alert(task, "waitpid() failed: %E", err);
+                return NXT_ERROR;
+            }
+        }
+
+        nxt_debug(task, "waitpid(): %PI", pid);
+
+        if (pid == 0) {
+            return NXT_AGAIN;
+        }
+
+        nxt_atomic_cmp_set(&nxt_app_transient, 1, 0);
+	nxt_atomic_xchg(&nxt_app_transient_pid, 0);
+
+	break;
+    }
+
+    if (WTERMSIG(status)) {
+#ifdef WCOREDUMP
+        nxt_alert(task, "transient process %PI exited on signal %d%s",
+                  pid, WTERMSIG(status),
+                  WCOREDUMP(status) ? " (core dumped)" : "");
+#else
+        nxt_alert(task, "transient process %PI exited on signal %d",
+                  pid, WTERMSIG(status));
+        return NXT_ERROR;
+#endif
+
+    } else {
+        nxt_trace(task, "transient process %PI exited with code %d",
+                  pid, WEXITSTATUS(status));
+        nxt_atomic_xchg(&nxt_app_transient_rc, WEXITSTATUS(status));
+    }
+
+    /*
+     * TODO : END code for signal handler
+     */
+
+    /* Check if SIGCHLD handler has run */
+    if (nxt_atomic_cmp_set(&nxt_app_transient, 0, 1)) {
+        buf = nxt_atomic_xchg(&nxt_app_transient_rc, 0);
+        *proc_rc = buf;
+
+        nxt_log(task, NXT_LOG_DEBUG, "Transient process %i finished with code %i",
+                (nxt_int_t) nxt_app_transient_pid, (nxt_int_t) buf);
+
+        return NXT_OK;
+    }
+
+    nxt_log(task, NXT_LOG_DEBUG, "Transient process %i not yet finished",
+            (nxt_int_t) nxt_app_transient_pid);
+
+    return NXT_AGAIN;
 }
 
 
