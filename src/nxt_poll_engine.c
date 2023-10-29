@@ -527,6 +527,12 @@ nxt_poll(nxt_event_engine_t *engine, nxt_msec_t timeout)
     nxt_debug(&engine->task, "poll(): %d", nevents);
 
     if (nevents == -1) {
+        if (err == NXT_EINVAL) {
+	    /* Possible exit of child process rendering fd invalid */
+	    nxt_alert(&engine->task, "poll() failed with EINVAL, exiting", err);
+	    nxt_runtime_quit(&engine->task, 0);
+	    return;
+        }
         level = (err == NXT_EINTR) ? NXT_LOG_INFO : NXT_LOG_ALERT;
         nxt_log(&engine->task, level, "poll() failed %E", err);
         return;
