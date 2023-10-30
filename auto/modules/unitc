@@ -48,7 +48,7 @@ fi
 $echo "configuring C module"
 $echo "configuring C module ..." >> $NXT_AUTOCONF_ERR
 
-NXT_C=c
+NXT_C=unitc
 NXT_C_MODULE=${NXT_C_MODULE=${NXT_C##*/}}
 
 NXT_C_CFLAGS=
@@ -70,6 +70,10 @@ $echo >> $NXT_MAKEFILE
 
 NXT_C_MODULE_SRCS=" \
     src/c/nxt_c.c
+"
+
+NXT_C_MODULE_HEADERS=" \
+    nxt_c.h
 "
 
 # The C module object files.
@@ -99,6 +103,12 @@ END
 
 done
 
+for nxt_c_hdr in $NXT_C_MODULE_HEADERS; do
+    mkdir -p $NXT_BUILD_DIR/include/unit
+    cp -f src/$nxt_c_hdr $NXT_BUILD_DIR/include/unit
+done
+
+
 cat << END >> $NXT_MAKEFILE
 
 .PHONY: ${NXT_C_MODULE}
@@ -119,12 +129,34 @@ ${NXT_C_MODULE}-install: ${NXT_C_MODULE} install-check
 	install -d \$(DESTDIR)$NXT_MODULESDIR
 	install -p $NXT_BUILD_DIR/lib/unit/modules/${NXT_C_MODULE}.unit.so \\
 		\$(DESTDIR)$NXT_MODULESDIR/
+	install -d \$(DESTDIR)$NXT_INCLUDEDIR/unit
+END
 
+for nxt_c_hdr in $NXT_C_MODULE_HEADERS; do
+    cat << END >> $NXT_MAKEFILE
+	install -p $NXT_BUILD_DIR/include/unit/$nxt_c_hdr \\
+		\$(DESTDIR)$NXT_INCLUDEDIR/unit/$nxt_c_hdr
+END
+
+done
+
+cat << END >> $NXT_MAKEFILE
 
 uninstall: ${NXT_C_MODULE}-uninstall
 
 ${NXT_C_MODULE}-uninstall:
 	rm -f \$(DESTDIR)$NXT_MODULESDIR/${NXT_C_MODULE}.unit.so
 	@rmdir -p \$(DESTDIR)$NXT_MODULESDIR 2>/dev/null || true
+END
+
+for nxt_c_hdr in $NXT_C_MODULE_HEADERS; do
+    cat << END >> $NXT_MAKEFILE
+	rm -f \$(DESTDIR)$NXT_INCLUDEDIR/unit/$nxt_c_hdr
+END
+
+done
+
+cat << END >> $NXT_MAKEFILE
+	@rmdir -p \$(DESTDIR)$NXT_INCLUDEDIR/unit 2>/dev/null || true
 
 END

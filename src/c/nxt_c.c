@@ -9,7 +9,7 @@
 #include <nxt_unit.h>
 #include <nxt_time.h>
 
-#include <c/nxt_c.h>
+#include <nxt_c.h>
 
 typedef struct {
     nxt_unit_ctx_t           *ctx;

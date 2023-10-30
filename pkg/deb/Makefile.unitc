@@ -1,0 +1,46 @@
+# Note : I am named Makefile.unitc and not Makefile.c as
+#        make otherwise sometimes tries to compile me!
+
+MODULES+=		unitc
+MODULE_SUFFIX_unitc=	c
+
+MODULE_SUMMARY_unitc=	C module for NGINX Unit
+
+MODULE_VERSION_unitc=	$(VERSION)
+MODULE_RELEASE_unitc=	1
+
+MODULE_CONFARGS_unitc=	unitc
+MODULE_MAKEARGS_unitc=	unitc
+MODULE_INSTARGS_unitc=	unitc-install
+
+MODULE_SOURCES_unitc=	unit.example-c-app \
+			unit.example-c-config
+
+MODULE_DEPENDS_unitc=,c-compiler,unit-dev-r$(VERSION)
+
+define MODULE_PREINSTALL_unitc
+	mkdir -p debian/unit-c/usr/share/doc/unit-c/examples
+	install -m 644 -p debian/unit.example-c-app debian/unit-c/usr/share/doc/unit-c/examples/example.c
+	install -m 644 -p debian/unit.example-c-config debian/unit-c/usr/share/doc/unit-c/examples/unit.config
+endef
+export MODULE_PREINSTALL_unitc
+
+define MODULE_POST_unitc
+cat <<BANNER
+----------------------------------------------------------------------
+
+The $(MODULE_SUMMARY_unitc) has been installed.
+
+To check out the sample app, run these commands:
+
+ sudo service unit restart
+ cd /usr/share/doc/unit-$(MODULE_SUFFIX_unitc)/examples
+ sudo curl -X PUT --data-binary @unit.config --unix-socket /var/run/control.unit.sock http://localhost/config
+ curl http://localhost:7080/
+
+Online documentation is available at https://unit.nginx.org
+
+----------------------------------------------------------------------
+BANNER
+endef
+export MODULE_POST_unitc

@@ -25,6 +25,7 @@ include Makefile.php
 include Makefile.python311
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11
@@ -42,6 +43,7 @@ include Makefile.python27
 include Makefile.python310
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11
@@ -58,6 +60,7 @@ include Makefile.python27
 include Makefile.python310
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11
@@ -74,6 +77,7 @@ include Makefile.python39
 include Makefile.python310
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11
@@ -90,6 +94,7 @@ include Makefile.python27
 include Makefile.python38
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11
@@ -105,6 +110,7 @@ include Makefile.python37
 include Makefile.python38
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc8
@@ -118,6 +124,7 @@ include Makefile.php
 include Makefile.python311
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc17
@@ -131,6 +138,7 @@ include Makefile.python27
 include Makefile.python39
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11
@@ -144,6 +152,7 @@ include Makefile.python27
 include Makefile.python37
 include Makefile.go
 include Makefile.perl
+include Makefile.unitc
 include Makefile.ruby
 include Makefile.jsc-common
 include Makefile.jsc11

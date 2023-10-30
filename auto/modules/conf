@@ -21,8 +21,8 @@ case "$nxt_module" in
        . auto/modules/perl
    ;;
 
-   c)
-       . auto/modules/c
+   unitc)
+       . auto/modules/unitc
    ;;
 
    ruby)

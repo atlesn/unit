@@ -415,6 +415,8 @@ libunit-install: $NXT_BUILD_DIR/lib/$NXT_LIB_UNIT_STATIC
 		$NXT_BUILD_DIR/include/nxt_auto_config.h \
 		$NXT_BUILD_DIR/include/nxt_version.h \
 		src/nxt_websocket_header.h \
+		src/nxt_clang.h \
+		src/nxt_types.h \
 		\$(DESTDIR)$NXT_INCLUDEDIR/
 
 libunit-uninstall:
@@ -431,7 +433,9 @@ libunit-uninstall:
 		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_unit_websocket.h \
 		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_auto_config.h \
 		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_version.h \
-		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_websocket_header.h
+		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_websocket_header.h \
+		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_clang.h \
+		\$(DESTDIR)$NXT_INCLUDEDIR/nxt_types.h
 	@rmdir -p \$(DESTDIR)$NXT_INCLUDEDIR 2>/dev/null || true
 
 END

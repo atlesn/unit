@@ -1,0 +1,18 @@
+{
+	"listeners": {"*:7080": {"pass": "applications/example_c"}},
+	"applications": {
+		"example_c": {
+			"type": "c",
+			"working_directory": "/usr/share/doc/unit-c/examples",
+			"prefix": "./example",
+			"cc": "/usr/bin/clang",
+			"flags": [
+				"-B/usr/bin",
+				"-I/usr/include",
+				"-Wall",
+				"-Wextra",
+				"-Werror"
+			]
+		}
+	}
+}

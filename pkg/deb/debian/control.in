@@ -41,5 +41,6 @@ Priority: optional
 Architecture: any
 Depends: unit (= ${binary:Version}),
          ${misc:Depends}
+Provides: unit-dev-r%%UNIT_VERSION%%
 Description: NGINX Unit (development files)
  Library and include files required for NGINX Unit modules development.
